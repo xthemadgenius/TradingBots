@@ -11,7 +11,7 @@ It fetches historical data, calculates volatilities, determines allocation ratio
 Prerequisites:
 - Python 3.7+
 - Required Libraries: yfinance, alpaca-trade-api, schedule
-- Alpaca Account with API keys
+- Alpaca Account with API keys(https://alpaca.markets/)
 """
 
 import argparse
