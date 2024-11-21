@@ -43,19 +43,33 @@ def parse_arguments():
         argparse.Namespace: Parsed arguments.
     """
     parser = argparse.ArgumentParser(description='Inverse Volatility Trading Bot')
-    parser.add_argument('-s', '--symbols', type=str, default='UPRO,TMF',
+    parser.add_argument('-s', '--symbols', 
+                        type=str,
+                        default='UPRO,TMF',
                         help='Comma-separated list of ticker symbols (default: UPRO,TMF)')
-    parser.add_argument('-w', '--window_size', type=int, default=20,
+    parser.add_argument('-w', '--window_size', 
+                        type=int, 
+                        default=20,
                         help='Window size for volatility calculation (default: 20)')
-    parser.add_argument('-d', '--days_per_year', type=int, default=252,
+    parser.add_argument('-d', '--days_per_year', 
+                        type=int, 
+                        default=252,
                         help='Number of trading days per year (default: 252)')
-    parser.add_argument('-t', '--transaction_cost', type=float, default=0.001,
+    parser.add_argument('-t', '--transaction_cost', 
+                        type=float, 
+                        default=0.001,
                         help='Transaction cost rate per trade (default: 0.1%%)')
-    parser.add_argument('--base_url', type=str, default=None,
+    parser.add_argument('--base_url', 
+                        type=str, 
+                        default=None,
                         help='Alpaca API base URL (overrides environment variable)')
-    parser.add_argument('--api_key', type=str, default=None,
+    parser.add_argument('--api_key', 
+                        type=str, 
+                        default=None,
                         help='Alpaca API Key ID (overrides environment variable)')
-    parser.add_argument('--api_secret', type=str, default=None,
+    parser.add_argument('--api_secret', 
+                        type=str, 
+                        default=None,
                         help='Alpaca API Secret Key (overrides environment variable)')
     return parser.parse_args()
 
