@@ -1,7 +1,12 @@
+import os
 import time
 import requests
 from bs4 import BeautifulSoup
 from bxsolana_trader import Trader, Wallet, Market
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Constants
 INITIAL_INVESTMENT_SOL = 0.005  # Initial investment in SOL
@@ -11,8 +16,13 @@ STOP_LOSS = 0.10  # 10% decrease in market cap
 BONDING_CRITICAL = 0.75  # 75% of the bonding curve reached
 TIMEOUT = 3600  # 1 hour trade timeout
 
+# Load wallet mnemonic from ENV
+WALLET_MNEMONIC = os.getenv("WALLET_MNEMONIC")
+if not WALLET_MNEMONIC:
+    raise ValueError("Wallet mnemonic is not set. Please set the WALLET_MNEMONIC in the environment.")
+
 # Initialize Wallet and Trader
-wallet = Wallet.from_mnemonic("your wallet mnemonic phrase here")
+wallet = Wallet.from_mnemonic(WALLET_MNEMONIC)
 trader = Trader(wallet=wallet)
 
 def scrape_pump_fun():
