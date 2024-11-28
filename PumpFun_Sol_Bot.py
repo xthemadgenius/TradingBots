@@ -4,7 +4,7 @@ from bs4 import BeautifulSoup
 from bxsolana_trader import Trader, Wallet, Market
 
 # Constants
-INITIAL_INVESTMENT = 10  # Example: $10 initial investment per token
+INITIAL_INVESTMENT_SOL = 0.005  # Initial investment in SOL
 PROFIT_TARGET_1 = 0.25  # 25% profit
 PROFIT_TARGET_2 = 0.25  # Another 25% profit after target 1
 STOP_LOSS = 0.10  # 10% decrease in market cap
@@ -45,7 +45,7 @@ def monitor_market(token):
     market_data = {
         "market_cap": 5000000,  # Example market cap
         "bonding_curve": token["bonding_curve"],  # Use bonding curve from scraping
-        "price": 0.05,  # Example price
+        "price": 0.05,  # Example price in SOL
     }
     return market_data
 
@@ -110,11 +110,11 @@ def main():
             data = monitor_market(token)
             market_cap = data["market_cap"]
             bonding_curve = data["bonding_curve"]
-            buy_price = data["price"]
+            buy_price = data["price"]  # Price in SOL
 
-            # Execute buy
-            quantity = INITIAL_INVESTMENT / buy_price
-            print(f"Buying {quantity} tokens of {token['pair']} at {buy_price}")
+            # Calculate quantity based on SOL investment
+            quantity = INITIAL_INVESTMENT_SOL / buy_price
+            print(f"Buying {quantity} tokens of {token['pair']} at {buy_price} SOL")
             trader.buy(symbol=token["pair"], quantity=quantity)
 
             # Start monitoring
