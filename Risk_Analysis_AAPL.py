@@ -31,7 +31,6 @@ plt.show()
 AAPL['Volume'].plot(legend=True, figsize=(10, 4))
 plt.title('Daily Trading Volume of Apple Stock')
 plt.show()
-
 # Calculating Moving average for 10, 20 and 50 days of the stock price
 ma_day = [10, 20, 50]
 
