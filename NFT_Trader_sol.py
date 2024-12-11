@@ -1,28 +1,30 @@
 import requests
 import time
 from solana.rpc.api import Client
-from solana.transaction import Transaction
 from solana.rpc.types import TxOpts
-from solana.system_program import transfer
+from solana.transaction import Transaction
+from solana.keypair import Keypair
+from base64 import b64decode
 import logging
 
 # Logging configuration
-logging.basicConfig(filename="nft_mev_bot.log", level=logging.INFO, format="%(asctime)s - %(message)s")
+logging.basicConfig(filename="nft_mev_wallet_bot.log", level=logging.INFO, format="%(asctime)s - %(message)s")
 
 # Constants
 MAGIC_EDEN_API = "https://api-mainnet.magiceden.dev/v2"
 SOLANA_RPC = "https://api.mainnet-beta.solana.com"
 CONTRACT_ADDRESS = "Your_Collection_Contract_Address"  # Replace with actual contract address
-MAX_SPENDING_LIMIT_SOL = 10  # Limit spending per session
 BUY_THRESHOLD = 0.85  # Buy if price < 85% of floor price
-PROFIT_THRESHOLD = 1.2  # Exit if selling price > 120% of purchase price
+PROFIT_THRESHOLD = 1.2  # Sell if price > 120% of purchase price
+MAX_SPENDING_LIMIT_SOL = 10  # Maximum SOL the bot is allowed to spend
 
 # Initialize Solana client
 solana_client = Client(SOLANA_RPC)
 
-# User wallet configuration
-WALLET_PRIVATE_KEY = "your_private_key_here"
-WALLET_PUBLIC_KEY = "your_public_key_here"
+# Load wallet keypair securely
+WALLET_PRIVATE_KEY = "your_private_key_base64"  # Replace with actual private key in base64 format
+wallet_keypair = Keypair.from_secret_key(b64decode(WALLET_PRIVATE_KEY))
+WALLET_PUBLIC_KEY = str(wallet_keypair.public_key)
 
 # Fetch collection stats (including floor price)
 def fetch_collection_stats(contract_address):
@@ -43,25 +45,39 @@ def fetch_new_listings(contract_address):
     url = f"{MAGIC_EDEN_API}/collections/{contract_address}/listings"
     response = requests.get(url)
     if response.status_code == 200:
-        return sorted(response.json(), key=lambda x: x["price"])  # Sort by price
+        listings = response.json()
+        return [
+            listing for listing in listings
+            if listing.get("price") and listing.get("price") > 0
+        ]  # Filter valid listings
     else:
         logging.error(f"Error fetching listings: {response.text}")
         return []
 
+# Monitor wallet balance
+def check_wallet_balance():
+    balance = solana_client.get_balance(wallet_keypair.public_key)["result"]["value"]
+    return balance / 10**9  # Convert lamports to SOL
+
 # Purchase NFT
 def purchase_nft(mint_address, price):
     try:
+        wallet_balance = check_wallet_balance()
+        if wallet_balance < price:
+            logging.warning(f"Insufficient balance to purchase NFT: {mint_address} at {price} SOL")
+            return False
+
         logging.info(f"Attempting to buy NFT: {mint_address} at {price} SOL")
         tx = Transaction()
         tx.add(
             transfer(
-                from_pubkey=WALLET_PUBLIC_KEY,
-                to_pubkey=mint_address,
+                from_pubkey=wallet_keypair.public_key,
+                to_pubkey=PublicKey(mint_address),
                 lamports=int(price * 10**9),
             )
         )
         response = solana_client.send_transaction(
-            tx, WALLET_PRIVATE_KEY, opts=TxOpts(skip_confirmation=False)
+            tx, wallet_keypair, opts=TxOpts(skip_confirmation=False)
         )
         logging.info(f"Purchase successful: {response}")
         return True
@@ -73,12 +89,24 @@ def purchase_nft(mint_address, price):
 def list_nft_for_sale(mint_address, sell_price):
     try:
         logging.info(f"Listing NFT for sale: {mint_address} at {sell_price} SOL")
-        # Placeholder for Magic Eden listing API call
-        # Implement this with Magic Eden's selling endpoint or SDK
-        # Example: send a signed transaction to list the NFT
-        logging.info(f"NFT listed successfully: {mint_address}")
+        # Implement listing logic here using Magic Eden's API or custom transaction
+        url = f"{MAGIC_EDEN_API}/listings"
+        payload = {
+            "mintAddress": mint_address,
+            "price": sell_price,
+            "walletAddress": WALLET_PUBLIC_KEY
+        }
+        headers = {"Content-Type": "application/json"}
+        response = requests.post(url, json=payload, headers=headers)
+        if response.status_code == 200:
+            logging.info(f"NFT listed successfully: {mint_address} at {sell_price} SOL")
+            return True
+        else:
+            logging.error(f"Error listing NFT: {response.text}")
+            return False
     except Exception as e:
         logging.error(f"Error listing NFT {mint_address} for sale: {str(e)}")
+        return False
 
 # Entry and Exit Strategy
 def trading_strategy(contract_address):
@@ -107,7 +135,7 @@ def trading_strategy(contract_address):
 
 # Main loop
 if __name__ == "__main__":
-    logging.info("Starting NFT MEV trading bot with enhanced logic...")
+    logging.info("Starting NFT MEV wallet bot with enhanced logic...")
     try:
         while True:
             trading_strategy(CONTRACT_ADDRESS)
