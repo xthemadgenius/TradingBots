@@ -7,7 +7,7 @@ from solana.keypair import Keypair
 from base64 import b64decode
 import logging
 
-# Logging configuration
+# Logging config
 logging.basicConfig(filename="nft_mev_wallet_bot.log", level=logging.INFO, format="%(asctime)s - %(message)s")
 
 # Constants
