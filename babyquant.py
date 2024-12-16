@@ -13,6 +13,8 @@ TRADE_AMOUNT = 0.001  # Amount of BTC to trade
 TAKE_PROFIT_PERCENT = 1.5  # Take profit percentage
 STOP_LOSS_PERCENT = 1.0  # Stop loss percentage
 MOMENTUM_PERIOD = 10  # Period for trend-following logic
+PAIR_SYMBOLS = ['ETH/USDT', 'BTC/USDT']  # Symbols for pairs trading
+VOLATILITY_PERIOD = 20  # Period for volatility calculation
 
 if CCXT_AVAILABLE:
     # Initialize the exchange
@@ -34,13 +36,19 @@ data = {
 positions_df = pd.DataFrame(data)
 
 # Helper functions
-def fetch_latest_candle():
+def fetch_latest_candle(symbol):
     """Fetch the latest candle for the given symbol and timeframe."""
     if not CCXT_AVAILABLE:
         print("CCXT not available. Cannot fetch candle data.")
         return None
-    candles = exchange.fetch_ohlcv(SYMBOL, timeframe=TIMEFRAME, limit=2)
+    candles = exchange.fetch_ohlcv(symbol, timeframe=TIMEFRAME, limit=2)
     return candles[-1]  # Return the most recent candle
+
+def calculate_volatility(prices, period=VOLATILITY_PERIOD):
+    """Calculate volatility using standard deviation."""
+    if len(prices) < period:
+        return None
+    return pd.Series(prices).pct_change().rolling(period).std().iloc[-1]
 
 def calculate_rsi(prices, period=14):
     """Calculate the Relative Strength Index (RSI)."""
@@ -72,14 +80,14 @@ def calculate_momentum(prices, period=MOMENTUM_PERIOD):
         return None
     return prices[-1] - prices[-period]  # Momentum as price difference
 
-def place_order(side, amount):
+def place_order(side, amount, symbol):
     """Place a market order."""
     if not CCXT_AVAILABLE:
         print("CCXT not available. Cannot place order.")
         return None
     try:
         order = exchange.create_order(
-            symbol=SYMBOL,
+            symbol=symbol,
             type='market',
             side=side,
             amount=amount
@@ -89,15 +97,23 @@ def place_order(side, amount):
         print(f"Error placing {side} order: {e}")
         return None
 
-def find_open_positions(df):
-    """Find positions where open_bool is True and return the symbols."""
-    open_positions = df[df['open_bool'] == True]
-    for _, row in open_positions.iterrows():
-        print(f"Symbol: {row['symbol']}, Index: {row['index_pos']}, Open Side: {row['open_side']}, Open Bool: {row['open_bool']}")
-    return open_positions['symbol'].tolist()
+def pairs_trading(symbols):
+    """Execute pairs trading strategy based on price spreads."""
+    prices = [fetch_latest_candle(symbol)[4] for symbol in symbols]
+    if len(prices) == 2:
+        spread = prices[0] - prices[1]
+        print(f"Pair Spread: {spread}")
+        if spread > 50:  # Arbitrary threshold
+            print("Spread too wide: Short first asset, Long second asset")
+            place_order('sell', TRADE_AMOUNT, symbols[0])
+            place_order('buy', TRADE_AMOUNT, symbols[1])
+        elif spread < -50:
+            print("Spread too negative: Long first asset, Short second asset")
+            place_order('buy', TRADE_AMOUNT, symbols[0])
+            place_order('sell', TRADE_AMOUNT, symbols[1])
 
 def trading_logic():
-    """Main trading logic with sentiment analysis and trend-following (momentum) logic."""
+    """Main trading logic with pairs trading, volatility arbitrage, and momentum."""
     prices = []
     open_positions = find_open_positions(positions_df)
     print(f"Open positions found: {open_positions}")
@@ -109,7 +125,7 @@ def trading_logic():
     while True:
         try:
             # Fetch the latest candle
-            candle = fetch_latest_candle()
+            candle = fetch_latest_candle(SYMBOL)
             if candle is None:
                 print("No candle data available. Skipping iteration.")
                 time.sleep(5)
@@ -122,34 +138,31 @@ def trading_logic():
             if len(prices) > MOMENTUM_PERIOD:
                 rsi = calculate_rsi(prices)
                 momentum = calculate_momentum(prices)
+                volatility = calculate_volatility(prices)
+
+                print(f"RSI: {rsi}, Momentum: {momentum}, Volatility: {volatility}")
+
+                # Volatility arbitrage
+                if volatility is not None and volatility > 0.02:  # High volatility threshold
+                    print(f"High volatility detected ({volatility}): Placing trades.")
+                    place_order('buy', TRADE_AMOUNT, SYMBOL)
 
                 # Trend-following conditions (momentum-based)
-                if momentum > 0 and sentiment > 0:  # Positive momentum and positive sentiment
+                if momentum > 0 and sentiment > 0:
                     print(f"Momentum {momentum}: Buying signal with positive sentiment ({sentiment}).")
-                    place_order('buy', TRADE_AMOUNT)
-                elif momentum < 0 and sentiment < 0:  # Negative momentum and negative sentiment
+                    place_order('buy', TRADE_AMOUNT, SYMBOL)
+                elif momentum < 0 and sentiment < 0:
                     print(f"Momentum {momentum}: Selling signal with negative sentiment ({sentiment}).")
-                    place_order('sell', TRADE_AMOUNT)
+                    place_order('sell', TRADE_AMOUNT, SYMBOL)
 
-                # RSI-based conditions
-                if rsi is not None:
-                    if rsi < 30 and sentiment > 0:  # Oversold condition + positive sentiment
-                        print(f"RSI {rsi}: Buying signal with positive sentiment ({sentiment}).")
-                        place_order('buy', TRADE_AMOUNT)
+                # Pairs trading logic
+                pairs_trading(PAIR_SYMBOLS)
 
-                    elif rsi > 70 and sentiment < 0:  # Overbought condition + negative sentiment
-                        print(f"RSI {rsi}: Selling signal with negative sentiment ({sentiment}).")
-                        place_order('sell', TRADE_AMOUNT)
-
-            # Sleep before the next iteration
-            if CCXT_AVAILABLE:
-                time.sleep(exchange.rateLimit / 1000)  # Respect API rate limit
-            else:
-                time.sleep(5)  # Default sleep when CCXT is unavailable
+            time.sleep(exchange.rateLimit / 1000 if CCXT_AVAILABLE else 5)
 
         except Exception as e:
             print(f"Error in trading logic: {e}")
-            time.sleep(5)  # Retry after a short delay
+            time.sleep(5)
 
 if __name__ == '__main__':
     print("Starting trading bot...")
