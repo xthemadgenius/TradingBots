@@ -1,5 +1,6 @@
 import pandas as pd
 import time
+from textblob import TextBlob
 import ccxt
 
 # Configuration
@@ -58,6 +59,12 @@ def calculate_rsi(prices, period=14):
     rsi = 100 - (100 / (1 + rs))
     return rsi
 
+def perform_sentiment_analysis(text):
+    """Perform sentiment analysis on a given text."""
+    analysis = TextBlob(text)
+    sentiment = analysis.sentiment.polarity
+    return sentiment
+
 def place_order(side, amount):
     """Place a market order."""
     if not CCXT_AVAILABLE:
@@ -79,14 +86,18 @@ def find_open_positions(df):
     """Find positions where open_bool is True and return the symbols."""
     open_positions = df[df['open_bool'] == True]
     for _, row in open_positions.iterrows():
-        print(f"Symbol: {row['symbol']}, Index: {row['index_pos']}, Open Side: {row['open_side']}")
+        print(f"Symbol: {row['symbol']}, Index: {row['index_pos']}, Open Side: {row['open_side']}, Open Bool: {row['open_bool']}")
     return open_positions['symbol'].tolist()
 
 def trading_logic():
-    """Main trading logic."""
+    """Main trading logic with sentiment analysis."""
     prices = []
     open_positions = find_open_positions(positions_df)
     print(f"Open positions found: {open_positions}")
+
+    news_headline = "Bitcoin rally continues as institutional interest surges."
+    sentiment = perform_sentiment_analysis(news_headline)
+    print(f"Sentiment Analysis on news headline: {sentiment}")
 
     while True:
         try:
@@ -106,12 +117,12 @@ def trading_logic():
 
                 # Trading conditions
                 if rsi is not None:
-                    if rsi < 30:  # Oversold condition
-                        print(f"RSI {rsi}: Buying signal.")
+                    if rsi < 30 and sentiment > 0:  # Oversold condition + positive sentiment
+                        print(f"RSI {rsi}: Buying signal with positive sentiment ({sentiment}).")
                         place_order('buy', TRADE_AMOUNT)
 
-                    elif rsi > 70:  # Overbought condition
-                        print(f"RSI {rsi}: Selling signal.")
+                    elif rsi > 70 and sentiment < 0:  # Overbought condition + negative sentiment
+                        print(f"RSI {rsi}: Selling signal with negative sentiment ({sentiment}).")
                         place_order('sell', TRADE_AMOUNT)
 
             # Sleep before the next iteration
