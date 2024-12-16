@@ -12,6 +12,7 @@ TIMEFRAME = '1m'  # Candle timeframe
 TRADE_AMOUNT = 0.001  # Amount of BTC to trade
 TAKE_PROFIT_PERCENT = 1.5  # Take profit percentage
 STOP_LOSS_PERCENT = 1.0  # Stop loss percentage
+MOMENTUM_PERIOD = 10  # Period for trend-following logic
 
 if CCXT_AVAILABLE:
     # Initialize the exchange
@@ -65,6 +66,12 @@ def perform_sentiment_analysis(text):
     sentiment = analysis.sentiment.polarity
     return sentiment
 
+def calculate_momentum(prices, period=MOMENTUM_PERIOD):
+    """Calculate momentum for trend-following logic."""
+    if len(prices) < period:
+        return None
+    return prices[-1] - prices[-period]  # Momentum as price difference
+
 def place_order(side, amount):
     """Place a market order."""
     if not CCXT_AVAILABLE:
@@ -90,7 +97,7 @@ def find_open_positions(df):
     return open_positions['symbol'].tolist()
 
 def trading_logic():
-    """Main trading logic with sentiment analysis."""
+    """Main trading logic with sentiment analysis and trend-following (momentum) logic."""
     prices = []
     open_positions = find_open_positions(positions_df)
     print(f"Open positions found: {open_positions}")
@@ -111,11 +118,20 @@ def trading_logic():
             close_price = candle[4]  # Closing price
             prices.append(close_price)
 
-            # Ensure we have enough data for RSI calculation
-            if len(prices) > 14:
+            # Ensure we have enough data for calculations
+            if len(prices) > MOMENTUM_PERIOD:
                 rsi = calculate_rsi(prices)
+                momentum = calculate_momentum(prices)
 
-                # Trading conditions
+                # Trend-following conditions (momentum-based)
+                if momentum > 0 and sentiment > 0:  # Positive momentum and positive sentiment
+                    print(f"Momentum {momentum}: Buying signal with positive sentiment ({sentiment}).")
+                    place_order('buy', TRADE_AMOUNT)
+                elif momentum < 0 and sentiment < 0:  # Negative momentum and negative sentiment
+                    print(f"Momentum {momentum}: Selling signal with negative sentiment ({sentiment}).")
+                    place_order('sell', TRADE_AMOUNT)
+
+                # RSI-based conditions
                 if rsi is not None:
                     if rsi < 30 and sentiment > 0:  # Oversold condition + positive sentiment
                         print(f"RSI {rsi}: Buying signal with positive sentiment ({sentiment}).")
