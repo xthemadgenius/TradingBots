@@ -9,12 +9,14 @@ API_SECRET = 'your_api_secret'
 EXCHANGE_ID = 'binance'  # Example: Binance exchange
 SYMBOL = 'BTC/USDT'  # Example trading pair
 TIMEFRAME = '1m'  # Candle timeframe
-TRADE_AMOUNT = 0.001  # Amount of BTC to trade
+TRADE_AMOUNT = 0.001  # Base trade amount (consider dynamic sizing)
 TAKE_PROFIT_PERCENT = 1.5  # Take profit percentage
 STOP_LOSS_PERCENT = 1.0  # Stop loss percentage
 MOMENTUM_PERIOD = 10  # Period for trend-following logic
-PAIR_SYMBOLS = ['ETH/USDT', 'BTC/USDT']  # Symbols for pairs trading
 VOLATILITY_PERIOD = 20  # Period for volatility calculation
+VOLATILITY_THRESHOLD = 0.015  # Threshold for high volatility
+PAIR_SYMBOLS = ['ETH/USDT', 'BTC/USDT', 'LTC/USDT', 'BNB/USDT']  # Pairs for trading
+PAIR_SPREAD_THRESHOLD = 30  # Spread threshold for pairs trading
 
 if CCXT_AVAILABLE:
     # Initialize the exchange
