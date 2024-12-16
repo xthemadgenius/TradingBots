@@ -105,20 +105,26 @@ def pairs_trading(symbols):
     if len(prices) == 2:
         spread = prices[0] - prices[1]
         print(f"Pair Spread: {spread}")
-        if spread > 50:  # Arbitrary threshold
+        if spread > PAIR_SPREAD_THRESHOLD:  # Arbitrary threshold
             print("Spread too wide: Short first asset, Long second asset")
             place_order('sell', TRADE_AMOUNT, symbols[0])
             place_order('buy', TRADE_AMOUNT, symbols[1])
-        elif spread < -50:
+        elif spread < -PAIR_SPREAD_THRESHOLD:
             print("Spread too negative: Long first asset, Short second asset")
             place_order('buy', TRADE_AMOUNT, symbols[0])
             place_order('sell', TRADE_AMOUNT, symbols[1])
+
+def find_open_positions(df):
+    """Find positions where open_bool is True and return the symbols."""
+    open_positions = df[df['open_bool'] == True]
+    symbols = open_positions['symbol'].tolist()
+    print(f"Open positions found: {symbols}")
+    return symbols
 
 def trading_logic():
     """Main trading logic with pairs trading, volatility arbitrage, and momentum."""
     prices = []
     open_positions = find_open_positions(positions_df)
-    print(f"Open positions found: {open_positions}")
 
     news_headline = "Bitcoin rally continues as institutional interest surges."
     sentiment = perform_sentiment_analysis(news_headline)
@@ -145,7 +151,7 @@ def trading_logic():
                 print(f"RSI: {rsi}, Momentum: {momentum}, Volatility: {volatility}")
 
                 # Volatility arbitrage
-                if volatility is not None and volatility > 0.02:  # High volatility threshold
+                if volatility is not None and volatility > VOLATILITY_THRESHOLD:
                     print(f"High volatility detected ({volatility}): Placing trades.")
                     place_order('buy', TRADE_AMOUNT, SYMBOL)
 
