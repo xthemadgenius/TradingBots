@@ -108,7 +108,7 @@ def list_nft_for_sale(mint_address, sell_price):
         logging.error(f"Error listing NFT {mint_address} for sale: {str(e)}")
         return False
 
-# Entry and Exit Strategy
+# Entry & Exit Strategy
 def trading_strategy(contract_address):
     stats = fetch_collection_stats(contract_address)
     if stats["floor_price"] is None:
