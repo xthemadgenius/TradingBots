@@ -1,13 +1,8 @@
 import pandas as pd
+import json
 import time
 from textblob import TextBlob
-
-try:
-    import ccxt
-    CCXT_AVAILABLE = True
-except ModuleNotFoundError:
-    print("The 'ccxt' library is not available. Trading functionalities will be disabled.")
-    CCXT_AVAILABLE = False
+import ccxt
 
 # Configuration
 API_KEY = 'your_api_key'
@@ -40,24 +35,50 @@ if CCXT_AVAILABLE:
         'enableRateLimit': True,
     })
 
-# Dynamic data population
-def fetch_trading_symbols(quote_currency='USDT', max_symbols=10):
-    """Fetch and filter trading symbols dynamically from the exchange."""
-    if not exchange:
-        print("Exchange is not initialized. Cannot fetch symbols.")
-        return []
-
+# Dynamic data population from CSV or JSON
+def fetch_trading_symbols_from_file(file_path, file_type='csv'):
+    """Fetch and filter trading symbols from a file (CSV or JSON)."""
     try:
-        exchange.load_markets()
-        symbols = [symbol for symbol in exchange.symbols if symbol.endswith(f"/{quote_currency}")]
-        print(f"Fetched {len(symbols)} symbols matching {quote_currency}.")
-        return symbols[:max_symbols]  # Limit the number of symbols
+        if file_type == 'csv':
+            df = pd.read_csv(file_path)
+            symbols = df['symbol'].tolist()
+        elif file_type == 'json':
+            with open(file_path, 'r') as f:
+                data = json.load(f)
+                symbols = data.get('symbols', [])
+        else:
+            raise ValueError("Unsupported file type. Use 'csv' or 'json'.")
+
+        print(f"Fetched {len(symbols)} symbols from {file_path}.")
+        return symbols
     except Exception as e:
-        print(f"Error fetching trading symbols: {e}")
+        print(f"Error fetching symbols from file: {e}")
         return []
 
-# Use the function to populate `data`
-tokens = fetch_trading_symbols()
+# Load symbols dynamically from a file (replace 'symbols.csv' with your file path)
+tokens = fetch_trading_symbols_from_file('symbols.csv', file_type='csv')
+
+# Ensure fallback logic in case file-based fetching fails
+if not tokens:
+    print("Failed to load symbols from file. Falling back to default dynamic fetching.")
+    def fetch_trading_symbols(quote_currency='USDT', max_symbols=10):
+        """Fetch and filter trading symbols dynamically from the exchange."""
+        if not exchange:
+            print("Exchange is not initialized. Cannot fetch symbols.")
+            return []
+
+        try:
+            exchange.load_markets()
+            symbols = [symbol for symbol in exchange.symbols if symbol.endswith(f"/{quote_currency}")]
+            print(f"Fetched {len(symbols)} symbols matching {quote_currency}.")
+            return symbols[:max_symbols]  # Limit the number of symbols
+        except Exception as e:
+            print(f"Error fetching trading symbols: {e}")
+            return []
+
+    tokens = fetch_trading_symbols()
+
+# Initialize data structure
 data = {
     'symbol': tokens,
     'open_side': [None] * len(tokens),
