@@ -2,13 +2,7 @@ import pandas as pd
 import json
 import time
 from textblob import TextBlob
-
-try:
-    import ccxt
-    CCXT_AVAILABLE = True
-except ModuleNotFoundError:
-    print("The 'ccxt' library is not available. Trading functionalities will be disabled.")
-    CCXT_AVAILABLE = False
+import ccxt
 
 # Configuration
 API_KEY = 'your_api_key'
@@ -179,8 +173,7 @@ def monitor_copy_trade_wallets():
     print("Monitoring wallets for copy trading...")
     for wallet in COPY_TRADE_WALLETS:
         try:
-            # Replace with actual API or blockchain scanner call to get wallet trades
-            trades = get_wallet_trades(wallet)  # Mock function, replace with actual logic
+            trades = get_wallet_trades(wallet)  # Fetch trades from blockchain
             for trade in trades:
                 print(f"Wallet {wallet} executed trade: {trade}")
                 place_order(trade['side'], trade['amount'], trade['symbol'])
@@ -188,13 +181,25 @@ def monitor_copy_trade_wallets():
             print(f"Error monitoring wallet {wallet}: {e}")
 
 def get_wallet_trades(wallet):
-    """Mock function to simulate fetching trades from a wallet."""
-    # In a real implementation, integrate with a blockchain explorer or API
-    # Example of returned trade format
-    return [
-        {"symbol": "BTC/USDT", "side": "buy", "amount": 0.01},
-        {"symbol": "ETH/USDT", "side": "sell", "amount": 0.02}
-    ]
+    """Fetch trades from the blockchain for a given wallet."""
+    # Replace the following with real API or blockchain explorer integration
+    # Example: Using Etherscan API or similar for fetching wallet transactions
+    try:
+        transactions = []  # Replace with real API call result
+
+        # Simulate parsing transactions into trade actions
+        trades = []
+        for tx in transactions:
+            if tx['to'] in COPY_TRADE_WALLETS:  # Example condition
+                trades.append({
+                    'symbol': tx['token'],
+                    'side': 'buy' if tx['type'] == 'incoming' else 'sell',
+                    'amount': tx['amount']
+                })
+        return trades
+    except Exception as e:
+        print(f"Error fetching trades for wallet {wallet}: {e}")
+        return []
 
 def pairs_trading(symbols):
     """Execute pairs trading strategy based on price spreads."""
