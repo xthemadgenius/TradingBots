@@ -5,27 +5,36 @@ from textblob import TextBlob
 import ccxt
 
 # Configuration
-API_KEY = 'your_api_key'
-API_SECRET = 'your_api_secret'
-EXCHANGE_ID = 'binance'  # Example: Binance exchange
-SYMBOL = 'BTC/USDT'  # Example trading pair
-TIMEFRAME = '1m'  # Candle timeframe
-DAILY_TIMEFRAME = '1d'  # Daily timeframe for trend analysis
-TRADE_AMOUNT = 0.001  # Base trade amount (consider dynamic sizing)
+API_KEY = 'your_api_key'  # Exchange API key
+API_SECRET = 'your_api_secret'  # Exchange API secret
+EXCHANGE_ID = 'binance'  # Exchange platform (e.g., 'binance', 'kraken')
+
+# Blockchain Explorer API Key (for wallet monitoring)
+BLOCKCHAIN_API_KEY = 'your_blockchain_api_key'
+
+# Copy trading wallets to monitor
+COPY_TRADE_WALLETS = ['wallet_address_1', 'wallet_address_2']
+
+# Trade Parameters
+TRADE_AMOUNT = 0.001  # Base trade amount (adjust dynamically as needed)
 TAKE_PROFIT_PERCENT = 1.5  # Take profit percentage
 STOP_LOSS_PERCENT = 1.0  # Stop loss percentage
-MOMENTUM_PERIOD = 10  # Period for trend-following logic
-VOLATILITY_PERIOD = 20  # Period for volatility calculation
-VOLATILITY_THRESHOLD = 0.015  # Threshold for high volatility
-PAIR_SYMBOLS = ['ETH/USDT', 'BTC/USDT', 'LTC/USDT', 'BNB/USDT']  # Pairs for trading
-PAIR_SPREAD_THRESHOLD = 30  # Spread threshold for pairs trading
-DCA_INTERVAL = 300  # Time interval in seconds for DCA
-DCA_AMOUNT = 0.001  # Amount to buy/sell in each DCA iteration
+
+# Sniping Conditions
 SNIPING_CONDITIONS = {
-    "price_change": 5.0,  # Percentage price change for sniping
-    "volume_spike": 2.0,  # Multiplier of average volume for sniping
+    "price_change": 5.0,  # Minimum percentage price change for sniping
+    "volume_spike": 2.0,  # Volume spike multiplier for sniping
 }
-COPY_TRADE_WALLETS = ['wallet_address_1', 'wallet_address_2']  # List of wallets to copy trades from
+
+# Logging Configuration
+LOG_LEVEL = 'DEBUG'  # Set to 'DEBUG', 'INFO', or 'ERROR'
+LOG_FILE_PATH = 'trading_bot.log'  # Path to log file
+
+# Timeframe Configuration
+TIMEFRAME = '1m'  # Default timeframe for fetching candles
+DAILY_TIMEFRAME = '1d'  # Timeframe for daily trend analysis
+VOLATILITY_PERIOD = 20  # Period for volatility calculation
+MOMENTUM_PERIOD = 10  # Period for momentum calculation
 
 # Initialize the exchange outside of conditional block
 exchange = None
