@@ -5,10 +5,20 @@ import requests
 import sqlite3
 from typing import List, Dict
 
+##########################################################################
+# CONSTANTS & TYPEDEFS
+##########################################################################
+
+DEFAULT_DB_FILE = "dexscreener_data.db"
+# Dexscreener base endpoint (as of official docs).
+DEXSCREENER_BASE_URL = "https://api.dexscreener.com/latest/dex"
+# RugCheck path (adapt if docs change).
+RUGCHECK_PATH = "/v1/check"
 
 ##########################################################################
 # TELEGRAM NOTIFIER
 ##########################################################################
+
 def send_telegram_message(bot_token: str, chat_id: str, text: str):
     """
     Sends a simple message to a given Telegram chat using the Telegram Bot API.
@@ -24,16 +34,15 @@ def send_telegram_message(bot_token: str, chat_id: str, text: str):
     except requests.RequestException as e:
         print(f"[ERROR] Telegram message sending failed: {e}")
 
-
 ##########################################################################
 # FAKE VOLUME CHECK
 ##########################################################################
+
 def naive_fake_volume_check(token_info: dict) -> bool:
     """
-    Simple heuristic checks to label volume as 'fake' or suspicious.
-    Example:
-     - If 24h volume > 2 * market cap => suspicious
-     - If FDV == 0 but volume is large => suspicious
+    Simple heuristic checks to label volume as 'fake' or suspicious:
+      - If 24h volume > 2 * market cap => suspicious
+      - If FDV == 0 but volume is large => suspicious
     """
     volume_24h = token_info.get('volume_24h', 0)
     market_cap = token_info.get('market_cap', 0)
@@ -45,11 +54,10 @@ def naive_fake_volume_check(token_info: dict) -> bool:
         return True
     return False
 
-
 def pocket_universe_check(token_info: dict, api_url: str, api_key: str) -> bool:
     """
     Hypothetical call to the Pocket Universe API to check if volume is fake.
-    You must adapt this to the real Pocket Universe endpoint & response.
+    Adjust to the real Pocket Universe endpoint & response structure.
     """
     try:
         headers = {
@@ -66,12 +74,10 @@ def pocket_universe_check(token_info: dict, api_url: str, api_key: str) -> bool:
         response = requests.post(api_url, json=payload, headers=headers, timeout=5)
         response.raise_for_status()
         data = response.json()
-        # Suppose the API returns { "isFake": true/false }
         return bool(data.get("isFake", False))
     except requests.RequestException as e:
         print(f"[ERROR] Pocket Universe API error: {e}")
         return False
-
 
 def is_fake_volume(token_info: dict, config: dict) -> bool:
     """
@@ -79,7 +85,8 @@ def is_fake_volume(token_info: dict, config: dict) -> bool:
     combining naive check & optional Pocket Universe check.
     """
     if not config.get("check_fake_volume", False):
-        return False  # If check is disabled in config, skip.
+        # If check is disabled in config, skip.
+        return False
 
     # Naive check first
     if naive_fake_volume_check(token_info):
@@ -96,68 +103,58 @@ def is_fake_volume(token_info: dict, config: dict) -> bool:
 
     return False
 
+##########################################################################
+# RUGCHECK (Aligned with Swagger at https://api.rugcheck.xyz/swagger/index.html)
+##########################################################################
 
-##########################################################################
-# RUGCHECK.XYZ CHECK (Aligned with Swagger)
-##########################################################################
 def rugcheck_token(token_address: str, api_url: str) -> dict:
     """
-    Calls the RugCheck.xyz API for the specified token address,
-    following the Swagger doc at https://api.rugcheck.xyz/swagger/index.html
-
-    Example (if docs say GET /v1/check?address=...):
-      GET /v1/check?address=0xABCD...
+    Calls the RugCheck.xyz API for the specified token address.
+    Example route: GET {api_url}/v1/check?address=0xABCD...
 
     Hypothetical response shape:
       {
         "success": true,
         "data": {
-          "status": "Good" | "Warning" | "Danger" | "Scam",
-          "isSupplyBundled": true/false,
-          ...
+          "status": "Good"|"Warning"|"Danger"|"Scam",
+          "isSupplyBundled": true/false
         },
         "message": "..."
       }
     """
     try:
-        # Adjust to the real route from the RugCheck docs
-        query_url = f"{api_url}/v1/check?address={token_address}"
+        query_url = f"{api_url}{RUGCHECK_PATH}?address={token_address}"
         response = requests.get(query_url, timeout=10)
         response.raise_for_status()
         json_resp = response.json()
 
-        # If "success" is True, parse "data"
         if json_resp.get("success") is True:
             return json_resp.get("data", {})
         else:
-            # If success=False, something is off. We can skip.
             print(f"[WARNING] RugCheck API returned success=False for {token_address}")
             return {}
     except requests.RequestException as e:
         print(f"[ERROR] RugCheck.xyz API error for {token_address}: {e}")
         return {}
 
-
 def is_good_rugcheck(rugcheck_data: dict) -> bool:
     """
     Returns True if RugCheck status is 'Good'.
-    According to the docs, status might be 'Good'|'Warning'|'Danger'|'Scam' etc.
+    According to docs, can be 'Good'|'Warning'|'Danger'|'Scam', etc.
     """
-    status = rugcheck_data.get("status", "")
-    return (status == "Good")
-
+    return rugcheck_data.get("status", "") == "Good"
 
 def is_bundled_supply(rugcheck_data: dict) -> bool:
     """
-    Returns True if the RugCheck data indicates the supply is bundled.
-    Official field name might be 'isSupplyBundled'.
+    Returns True if the RugCheck data indicates the supply is bundled
+    (field: 'isSupplyBundled').
     """
     return bool(rugcheck_data.get("isSupplyBundled", False))
-
 
 ##########################################################################
 # DATABASE MANAGEMENT
 ##########################################################################
+
 def init_db(db_file: str):
     """
     Create or initialize the SQLite database for storing token snapshots.
@@ -181,13 +178,13 @@ def init_db(db_file: str):
     conn.commit()
     conn.close()
 
-
 def save_token_data(db_file: str, token_data_list: List[dict]):
     """
     Bulk inserts token data into the tokens table.
     """
     conn = sqlite3.connect(db_file)
     cursor = conn.cursor()
+
     for token_data in token_data_list:
         cursor.execute("""
             INSERT INTO tokens (address, name, symbol, chain, price, volume_24h, fdv, market_cap)
@@ -205,14 +202,14 @@ def save_token_data(db_file: str, token_data_list: List[dict]):
     conn.commit()
     conn.close()
 
-
 ##########################################################################
 # ANALYZER (Rug pulls, Pumps, Tier-1)
 ##########################################################################
+
 def detect_rug_pulls(token_records: List[dict]) -> List[dict]:
     """
     Detect potential rug pulls by comparing market cap to FDV or other heuristics.
-    Example: If market_cap < 30% of FDV, suspicious.
+    Example: If market_cap < 30% of FDV => suspicious.
     """
     suspicious_tokens = []
     for record in token_records:
@@ -221,7 +218,6 @@ def detect_rug_pulls(token_records: List[dict]) -> List[dict]:
         if fdv > 0 and mc < 0.3 * fdv:
             suspicious_tokens.append(record)
     return suspicious_tokens
-
 
 def detect_pumps(token_records: List[dict]) -> List[dict]:
     """
@@ -234,7 +230,6 @@ def detect_pumps(token_records: List[dict]) -> List[dict]:
             pumped_tokens.append(record)
     return pumped_tokens
 
-
 def detect_tier_one_listings(token_records: List[dict], known_listings: set) -> List[dict]:
     """
     Check if token's symbol is among known Tier-1 listings (e.g., BTC, ETH, BNB, XRP).
@@ -244,7 +239,6 @@ def detect_tier_one_listings(token_records: List[dict], known_listings: set) -> 
         if record.get('symbol') in known_listings:
             t1_coins.append(record)
     return t1_coins
-
 
 def analyze_tokens(token_data_list: List[dict]) -> dict:
     """
@@ -260,10 +254,10 @@ def analyze_tokens(token_data_list: List[dict]) -> dict:
         "tier_ones": tier_one_candidates
     }
 
-
 ##########################################################################
 # PNL TRACKER
 ##########################################################################
+
 class PnLTracker:
     """
     Tracks your positions (quantity, cost basis) and calculates unrealized PnL.
@@ -276,13 +270,10 @@ class PnLTracker:
         """
         self.positions = positions
         self.notify_threshold_percent = notify_threshold_percent
-        self.last_pnl_percent = {}  # {token_address: last_pnl% we recorded}
+        # Store the last recorded PnL% for each token address
+        self.last_pnl_percent = {}  # {address: float}
 
-    def update_prices_and_check(
-            self,
-            token_data_list: List[dict],
-            send_notification_callback
-    ):
+    def update_prices_and_check(self, token_data_list: List[dict], send_notification_callback):
         """
         For each token in token_data_list, check if we have a position.
         If yes, compute PnL => compare with last recorded => notify if threshold is crossed.
@@ -291,21 +282,19 @@ class PnLTracker:
             address = token_info.get("address", "").lower()
             current_price = token_info.get("price", 0)
 
-            # Find if we have a position in this token
             for pos in self.positions:
                 if pos["token_address"].lower() == address:
                     cost_basis = pos["cost_basis"]
                     quantity = pos["quantity"]
                     pnl = (current_price - cost_basis) * quantity
 
-                    # Avoid divide-by-zero
                     if cost_basis > 0:
                         pnl_percent = ((current_price - cost_basis) / cost_basis) * 100
                     else:
                         pnl_percent = 0
 
                     last_percent = self.last_pnl_percent.get(address, 0)
-                    # Check if PnL changed more than threshold
+                    # If difference in PnL% crosses threshold, notify.
                     if abs(pnl_percent - last_percent) >= self.notify_threshold_percent:
                         sign = "+" if pnl >= 0 else "-"
                         msg = (
@@ -317,13 +306,12 @@ class PnLTracker:
                         )
                         send_notification_callback(msg)
 
-                    # Update last known PnL% for this token
                     self.last_pnl_percent[address] = pnl_percent
-
 
 ##########################################################################
 # BONKBOT TRADING (Placeholder)
 ##########################################################################
+
 def bonkbot_trade(token_info: dict, side: str, amount: float, config: dict, notify_callback):
     """
     A placeholder function simulating a REST-based trade execution with BonkBot.
@@ -340,7 +328,7 @@ def bonkbot_trade(token_info: dict, side: str, amount: float, config: dict, noti
         "token_address": token_info.get("address", ""),
         "symbol": token_info.get("symbol", ""),
         "chain": token_info.get("chain", ""),
-        "side": side,   # "buy" or "sell"
+        "side": side,  # "buy" or "sell"
         "amount": amount,
         "slippage": slippage
     }
@@ -349,37 +337,38 @@ def bonkbot_trade(token_info: dict, side: str, amount: float, config: dict, noti
         response = requests.post(bonkbot_api_url, json=payload, timeout=10)
         response.raise_for_status()
         data = response.json()
+
         if bonk_config.get("trade_notifications", False):
-            msg = (f"BonkBot {side.upper()} executed for {token_info.get('symbol','?')}:\n"
-                   f"Quantity: {amount}\n"
-                   f"Slippage: {slippage}%\n"
-                   f"Result: {data}")
+            msg = (
+                f"BonkBot {side.upper()} executed for {token_info.get('symbol','?')}:\n"
+                f"Quantity: {amount}\n"
+                f"Slippage: {slippage}%\n"
+                f"Result: {data}"
+            )
             notify_callback(msg)
     except requests.RequestException as e:
         print(f"[ERROR] BonkBot trade call failed: {e}")
 
+##########################################################################
+# FETCHING FROM DEXSCREENER (with rate-limit handling)
+##########################################################################
 
-##########################################################################
-# FETCHING FROM DEXSCREENER
-##########################################################################
 def fetch_pairs_data(chain: str = "ethereum") -> List[dict]:
     """
-    Fetch pairs/tokens from Dexscreener's official API reference:
+    Fetch pairs/tokens from Dexscreener's official API:
       GET /latest/dex/pairs/{chain}
-    
-    We now handle:
-    - 'priceUsd' -> price
-    - 'volumeUsd24h' -> volume_24h
-    - 'fdv'
-    - 'liquidity.usd' -> market_cap
-    And do basic rate-limit handling if 429 is encountered.
+
+    We handle:
+      - priceUsd -> token_info['price']
+      - volumeUsd24h -> token_info['volume_24h']
+      - fdv -> token_info['fdv']
+      - liquidity.usd -> token_info['market_cap']
+    and do basic rate-limit handling (429).
     """
-    base_url = "https://api.dexscreener.com/latest/dex"
-    url = f"{base_url}/pairs/{chain}"
+    url = f"{DEXSCREENER_BASE_URL}/pairs/{chain}"
 
     try:
         response = requests.get(url, timeout=10)
-        # Basic rate-limit check
         if response.status_code == 429:
             print("[ERROR] Rate-limited by DexScreener. Sleeping for 30s...")
             time.sleep(30)
@@ -387,29 +376,23 @@ def fetch_pairs_data(chain: str = "ethereum") -> List[dict]:
         response.raise_for_status()
 
         data = response.json()
-        pairs = data.get('pairs', [])
-        return pairs
-
+        return data.get('pairs', [])
     except requests.RequestException as e:
         print(f"[ERROR] Fetching Dexscreener data failed: {e}")
         return []
 
-
 def watch_tokens(config: dict):
     """
-    Generator that repeatedly fetches data from Dexscreener, 
-    applies filters/blacklists, checks RugCheck & fake volume,
+    Generator that repeatedly fetches data from Dexscreener,
+    applies filters, checks for fake volume, calls RugCheck if enabled,
     yields valid tokens each loop.
-    
-    - volumeUsd24h -> token_info['volume_24h']
-    - priceUsd -> token_info['price']
-    - fdv -> token_info['fdv']
-    - liquidity.usd -> token_info['market_cap']
     """
     interval = config.get("interval_seconds", 60)
     chain = config.get("chain", "ethereum")
     filters = config.get("filters", {})
 
+    # We'll store blacklisted coin addresses in memory
+    # so we skip them on subsequent iterations
     blacklist_coins = set(config.get("blacklist_coins", []))
 
     # RugCheck config
@@ -426,20 +409,19 @@ def watch_tokens(config: dict):
             token_address = pair.get('pairAddress', '')
             base_token = pair.get('baseToken', {})
 
-            # Check blacklists
             if token_address in blacklist_coins:
                 continue
 
-            # Build token_info from official Dexscreener fields
+            # Build token_info from Dexscreener fields
             token_info = {
                 'address': token_address,
                 'name': base_token.get('name', ''),
                 'symbol': base_token.get('symbol', ''),
                 'chain': chain,
-                'price': float(pair.get('priceUsd', 0)),                  # from "priceUsd"
-                'volume_24h': float(pair.get('volumeUsd24h', 0)),         # from "volumeUsd24h"
-                'fdv': float(pair.get('fdv', 0)),                         # from "fdv"
-                'market_cap': float(pair.get('liquidity', {}).get('usd', 0))  # from "liquidity.usd"
+                'price': float(pair.get('priceUsd', 0)),
+                'volume_24h': float(pair.get('volumeUsd24h', 0)),
+                'fdv': float(pair.get('fdv', 0)),
+                'market_cap': float(pair.get('liquidity', {}).get('usd', 0))
             }
 
             # Apply numeric filters
@@ -454,32 +436,36 @@ def watch_tokens(config: dict):
             if is_fake_volume(token_info, config):
                 continue
 
-            # RugCheck (if enabled)
+            # RugCheck
             if use_rugcheck and rugcheck_api_url:
                 rc_data = rugcheck_token(token_address, rugcheck_api_url)
                 if not rc_data:
-                    continue  # skip if no data returned
-                # Only accept if 'status' is Good
+                    # If we get no data from RugCheck, skip
+                    continue
+
+                # Must be "Good" to proceed
                 if not is_good_rugcheck(rc_data):
                     continue
-                # If supply is bundled => auto-blacklist token
+
+                # If supply is bundled => optional auto-blacklist
                 if is_bundled_supply(rc_data):
                     if auto_blacklist_if_bundled:
                         blacklist_coins.add(token_address)
                     continue
 
+            # If we reach here, the token is valid
             parsed_data.append(token_info)
 
-        # Persist updated blacklists to config for next iteration
+        # Sync back any newly blacklisted addresses to config
         config["blacklist_coins"] = list(blacklist_coins)
 
         yield parsed_data
         time.sleep(interval)
 
-
 ##########################################################################
 # MAIN BOT CLASS
 ##########################################################################
+
 class DexScreenerBot:
     """
     Orchestrates:
@@ -492,12 +478,12 @@ class DexScreenerBot:
     """
     def __init__(self, config: dict):
         self.config = config
-        self.db_file = config.get('db_file', 'dexscreener_data.db')
+        self.db_file = config.get('db_file', DEFAULT_DB_FILE)
 
         # Initialize DB
         init_db(self.db_file)
 
-        # Telegram
+        # Telegram settings
         self.telegram_config = config.get("telegram", {})
         self.telegram_enabled = self.telegram_config.get("enable_telegram_notifications", False)
         self.bot_token = self.telegram_config.get("bot_token", "")
@@ -512,7 +498,7 @@ class DexScreenerBot:
     def telegram_callback(self, text_msg: str):
         """
         Wraps the Telegram sending function. If Telegram is disabled or missing credentials,
-        we just print the message.
+        we just print the message instead.
         """
         if self.telegram_enabled and self.bot_token and self.chat_id:
             send_telegram_message(self.bot_token, self.chat_id, text_msg)
@@ -572,36 +558,36 @@ class DexScreenerBot:
                     bonkbot_trade(
                         token_info,
                         side="buy",
-                        amount=100,   # e.g., 100 tokens
+                        amount=100,  # e.g., 100 tokens
                         config=self.config,
                         notify_callback=self.telegram_callback
                     )
-                # Additional conditions for 'sell' can go here.
-
+                # Additional logic for 'sell' can go here, e.g. if price > x => sell, etc.
 
 ##########################################################################
 # SCRIPT ENTRY POINT
 ##########################################################################
+
 def load_config(config_path: str) -> dict:
     """
-    Load configuration (JSON) from the given path.
+    Loads configuration (JSON) from the given file path.
     """
     with open(config_path, 'r') as f:
         return json.load(f)
-
 
 def parse_arguments():
     """
     CLI arguments to specify config file path, etc.
     """
-    parser = argparse.ArgumentParser(description="DexScreener Bot with RugCheck alignment per Swagger docs.")
+    parser = argparse.ArgumentParser(description="DexScreener Bot with RugCheck & PnL tracking.")
     parser.add_argument("--config", type=str, default="config.json", help="Path to the config JSON file.")
     return parser.parse_args()
 
-
-if __name__ == "__main__":
+def main():
     args = parse_arguments()
     config_data = load_config(args.config)
-
     bot = DexScreenerBot(config_data)
     bot.run()
+
+if __name__ == "__main__":
+    main()
