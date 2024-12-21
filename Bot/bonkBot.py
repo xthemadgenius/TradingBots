@@ -98,36 +98,61 @@ def is_fake_volume(token_info: dict, config: dict) -> bool:
 
 
 ##########################################################################
-# RUGCHECK.XYZ CHECK (Placeholder)
+# RUGCHECK.XYZ CHECK (Aligned with Swagger)
 ##########################################################################
 def rugcheck_token(token_address: str, api_url: str) -> dict:
     """
-    Calls the RugCheck.xyz API for the specified token address (hypothetical).
-    Example response:
+    Calls the RugCheck.xyz API for the specified token address,
+    following the Swagger doc at https://api.rugcheck.xyz/swagger/index.html
+
+    Example (if docs say GET /v1/check?address=...):
+      GET /v1/check?address=0xABCD...
+
+    Hypothetical response shape:
       {
-        "status": "Good" | "Warning" | "Danger",
-        "supplyBundled": true/false
+        "success": true,
+        "data": {
+          "status": "Good" | "Warning" | "Danger" | "Scam",
+          "isSupplyBundled": true/false,
+          ...
+        },
+        "message": "..."
       }
-    Adjust to the real RugCheck.xyz response.
     """
     try:
-        query_url = f"{api_url}?address={token_address}"
+        # Adjust to the real route from the RugCheck docs
+        query_url = f"{api_url}/v1/check?address={token_address}"
         response = requests.get(query_url, timeout=10)
         response.raise_for_status()
-        return response.json()
+        json_resp = response.json()
+
+        # If "success" is True, parse "data"
+        if json_resp.get("success") is True:
+            return json_resp.get("data", {})
+        else:
+            # If success=False, something is off. We can skip.
+            print(f"[WARNING] RugCheck API returned success=False for {token_address}")
+            return {}
     except requests.RequestException as e:
         print(f"[ERROR] RugCheck.xyz API error for {token_address}: {e}")
         return {}
 
 
-def is_good_rugcheck(data: dict) -> bool:
-    """Returns True if RugCheck status is 'Good'."""
-    return data.get('status') == 'Good'
+def is_good_rugcheck(rugcheck_data: dict) -> bool:
+    """
+    Returns True if RugCheck status is 'Good'.
+    According to the docs, status might be 'Good'|'Warning'|'Danger'|'Scam' etc.
+    """
+    status = rugcheck_data.get("status", "")
+    return (status == "Good")
 
 
-def is_bundled_supply(data: dict) -> bool:
-    """Returns True if the supply is flagged as bundled in RugCheck data."""
-    return bool(data.get('supplyBundled', False))
+def is_bundled_supply(rugcheck_data: dict) -> bool:
+    """
+    Returns True if the RugCheck data indicates the supply is bundled.
+    Official field name might be 'isSupplyBundled'.
+    """
+    return bool(rugcheck_data.get("isSupplyBundled", False))
 
 
 ##########################################################################
@@ -216,7 +241,7 @@ def detect_tier_one_listings(token_records: List[dict], known_listings: set) -> 
     """
     t1_coins = []
     for record in token_records:
-        if record['symbol'] in known_listings:
+        if record.get('symbol') in known_listings:
             t1_coins.append(record)
     return t1_coins
 
@@ -254,7 +279,7 @@ class PnLTracker:
         self.last_pnl_percent = {}  # {token_address: last_pnl% we recorded}
 
     def update_prices_and_check(
-            self, 
+            self,
             token_data_list: List[dict],
             send_notification_callback
     ):
@@ -335,7 +360,7 @@ def bonkbot_trade(token_info: dict, side: str, amount: float, config: dict, noti
 
 
 ##########################################################################
-# FETCHING FROM DEXSCREENER (APPLYING SUGGESTED FIXES)
+# FETCHING FROM DEXSCREENER
 ##########################################################################
 def fetch_pairs_data(chain: str = "ethereum") -> List[dict]:
     """
@@ -569,7 +594,7 @@ def parse_arguments():
     """
     CLI arguments to specify config file path, etc.
     """
-    parser = argparse.ArgumentParser(description="DexScreener Bot with updated logic for volume & dev fields.")
+    parser = argparse.ArgumentParser(description="DexScreener Bot with RugCheck alignment per Swagger docs.")
     parser.add_argument("--config", type=str, default="config.json", help="Path to the config JSON file.")
     return parser.parse_args()
 
