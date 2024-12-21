@@ -15,8 +15,8 @@
     "api_key": ""
   },
   "rugcheck_xyz": {
-    "use_rugcheck": false,
-    "api_url": "",
+    "use_rugcheck": true,
+    "api_url": "https://api.rugcheck.xyz",
     "auto_blacklist_if_bundled": true
   },
   "telegram": {
