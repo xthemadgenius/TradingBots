@@ -9,7 +9,7 @@ from email.mime.text import MIMEText
 API_KEY = 'your_api_key'
 API_SECRET = 'your_api_secret'
 EXCHANGE_NAME = 'binance'
-EXTERNAL_WALLET = 'your_external_wallet_address'
+EXTERNAL_WALLET = 'your_external_wallet_address'#BTC Wallet
 
 SYMBOL = 'BTC/USDT'
 TIMEFRAME = '1h'
