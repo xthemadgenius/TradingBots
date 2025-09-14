@@ -1,0 +1,22 @@
+# Copy to config.yaml and customize
+exchange: binance          # any CCXT id, e.g. binance, bybit, kucoin, okx
+sandbox: true              # use exchange sandbox/testnet if supported
+dry_run: true              # if true, no orders are sent
+symbol: BTC/USDT
+timeframe: 1h
+candles_limit: 200
+
+strategy:
+  name: sma_cross
+  fast: 20
+  slow: 50
+
+risk:
+  quote_per_trade: 50        # spend up to this much quote currency per buy
+  max_position_quote: 200    # cap total position (in quote currency)
+  min_quote_balance: 10      # don't trade if quote balance below this
+  sell_fraction: 1.0         # fraction of base position to sell on bearish cross
+
+runtime:
+  poll_interval_sec: 30      # how often to poll for new candles
+  log_level: INFO
