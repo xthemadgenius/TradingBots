@@ -5,7 +5,7 @@ import time
 import smtplib
 from email.mime.text import MIMEText
 
-# Configuration: Replace with your API keys and exchange details
+# Configuration: Replace with your API keys & exchange details
 API_KEY = 'your_api_key'
 API_SECRET = 'your_api_secret'
 EXCHANGE_NAME = 'binance'
