@@ -4,9 +4,10 @@ from solana.rpc.api import Client
 from solana.rpc.types import TxOpts
 from solana.transaction import Transaction
 from solana.keypair import Keypair
+
 from base64 import b64decode
 import logging
-# Javier
+
 # Logging config
 logging.basicConfig(filename="nft_mev_wallet_bot.log", level=logging.INFO, format="%(asctime)s - %(message)s")
 
